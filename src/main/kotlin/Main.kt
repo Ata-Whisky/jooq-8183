@@ -1,13 +1,11 @@
 package com.example.codegenbuh
 
-import java.sql.Date
 import org.jooq.SQLDialect
 import org.jooq.impl.DSL
-import org.jooq.impl.SQLDataType
-import org.testcontainers.containers.PostgreSQLContainer
-import java.time.LocalDate
 import org.jooq.impl.DefaultConfiguration
+import org.jooq.impl.SQLDataType
 import org.postgresql.ds.PGSimpleDataSource
+import org.testcontainers.containers.PostgreSQLContainer
 
 fun main() {
     val postgres = PostgreSQLContainer<Nothing>("postgres:17-alpine")
@@ -31,32 +29,26 @@ fun main() {
 
     rootDsl.transaction { c ->
         val ctx = c.dsl()
+        val select = ctx
+            .select(DSL.field("id"), DSL.field("date"))
+            .from("t_date")
+
+        val rs = select.fetchResultSet()
+        while (rs.next()) {
+            val id = rs.getString("id")
+            val date = rs.getDate("date")
+
+            println("RS: id='$id', java.sql.Date='${date}', time=${date.time}, LocalDate='${date.toLocalDate()}'")
+        }
 
         val id = DSL.field("id", SQLDataType.VARCHAR)
-        val localDateField = DSL.field("local_date", SQLDataType.LOCALDATE)
         val dateField = DSL.field("date", SQLDataType.DATE)
 
-        val records = ctx
-            .select(id, dateField, localDateField)
-            .from("t_date")
-            .fetch { record ->
+        select.fetch { record ->
+            val id = record.get(id)
+            val date = record.get(dateField)
 
-                DateRecord(
-                    id = record.get(id),
-                    localDate = record.get(localDateField),
-                    date = record.get(dateField),
-                )
-            }
-
-        val positiveLocalDate = records.first { it.id == "positive" }
-        println("Positive date expected to be '2024-12-30' is : LocalDate='${positiveLocalDate.localDate}', java.sql.Date='${positiveLocalDate.date}'")
-        val negativeDate = records.first { it.id == "negative" }
-        println("Negative date expected to be '-2025-12-30' is : java.sql.Date='${negativeDate.localDate}' or java.sql.Date='${negativeDate.date}'")
+            println("Record: id='$id', java.sql.Date='${date}', time=${date.time}, LocalDate='${date.toLocalDate()}'")
+        }
     }
 }
-
-data class DateRecord(
-    val id: String,
-    val localDate: LocalDate,
-    val date: Date,
-)
